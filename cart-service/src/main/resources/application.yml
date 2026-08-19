@@ -1,0 +1,81 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: cart-service
+  config:
+    import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 3000
+            readTimeout: 5000
+  # ProductInfo/StockValidationResponse are intentionally narrower than
+  # the full response shapes product-service/inventory-service return
+  # (cart-service only needs a few fields) — without this, Feign's
+  # Jackson decoder would reject the extra JSON properties by default.
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+
+cart:
+  ttl-days: 30
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOSTNAME:localhost}:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B59}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      productServiceClient:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+      inventoryClient:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+
+logging:
+  level:
+    com.ecommerce.cart: DEBUG

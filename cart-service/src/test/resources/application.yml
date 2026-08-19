@@ -1,0 +1,19 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+  config:
+    import: ""
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+
+eureka:
+  client:
+    enabled: false
+
+cart:
+  ttl-days: 30
+
+jwt:
+  secret: test-secret-key-for-jwt-signing-in-unit-and-integration-tests-only

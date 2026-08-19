@@ -1,0 +1,376 @@
+# =====================================================================
+# E-Commerce Microservices Platform — full local/demo stack.
+#
+# Run:   docker compose up --build
+# Stop:  docker compose down
+# =====================================================================
+
+networks:
+  ecommerce-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  kafka-data:
+  redis-data:
+
+services:
+
+  # ------------------------------------------------------------------
+  # Infrastructure
+  # ------------------------------------------------------------------
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ecommerce-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+      POSTGRES_MULTIPLE_DATABASES: auth_db,user_db,product_db,inventory_db,order_db,payment_db,notification_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # Kafka - Apache Kafka 3.9.2 - KRaft mode
+  # ------------------------------------------------------------------
+
+  kafka:
+    image: apache/kafka:3.9.2
+    container_name: ecommerce-kafka
+
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+    volumes:
+      - kafka-data:/tmp/kraft-combined-logs
+
+    ports:
+      - "9092:9092"
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+    networks:
+      - ecommerce-network
+
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # Platform infrastructure services
+  # ------------------------------------------------------------------
+
+  eureka-server:
+    build: ./eureka-server
+    container_name: eureka-server
+    environment:
+      EUREKA_HOSTNAME: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  config-server:
+    build: ./config-server
+    container_name: config-server
+    environment:
+      EUREKA_HOSTNAME: eureka-server
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8888:8888"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    environment:
+      EUREKA_HOSTNAME: eureka-server
+      CONFIG_SERVER_HOST: config-server
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # Business services
+  # ------------------------------------------------------------------
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: auth_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      EUREKA_HOSTNAME: eureka-server
+      CONFIG_SERVER_HOST: config-server
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRATION_MS: ${JWT_ACCESS_EXPIRATION_MS:-900000}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: user_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      EUREKA_HOSTNAME: eureka-server
+      CONFIG_SERVER_HOST: config-server
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  product-service:
+    build: ./product-service
+    container_name: product-service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: product_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      EUREKA_HOSTNAME: eureka-server
+      CONFIG_SERVER_HOST: config-server
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  inventory-service:
+    build: ./inventory-service
+    container_name: inventory-service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: inventory_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_HOSTNAME: eureka-server
+      CONFIG_SERVER_HOST: config-server
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  cart-service:
+    build: ./cart-service
+    container_name: cart-service
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      EUREKA_HOSTNAME: eureka-server
+      CONFIG_SERVER_HOST: config-server
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  order-service:
+    build: ./order-service
+    container_name: order-service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: order_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_HOSTNAME: eureka-server
+      CONFIG_SERVER_HOST: config-server
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    ports:
+      - "8086:8086"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: payment_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_HOSTNAME: eureka-server
+      CONFIG_SERVER_HOST: config-server
+      JWT_SECRET: ${JWT_SECRET}
+      PAYMENT_DUMMY_RANDOM_FAILURE_RATE: ${PAYMENT_RANDOM_FAILURE_RATE:-0.05}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    ports:
+      - "8087:8087"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: notification_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_HOSTNAME: eureka-server
+      CONFIG_SERVER_HOST: config-server
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    ports:
+      - "8088:8088"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped

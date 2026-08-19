@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:payment_test_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  cloud:
+    config:
+      enabled: false
+  config:
+    import: ""
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}
+
+eureka:
+  client:
+    enabled: false
+
+payment:
+  dummy:
+    random-failure-rate: 0.0
+
+jwt:
+  secret: test-secret-key-for-jwt-signing-in-unit-and-integration-tests-only

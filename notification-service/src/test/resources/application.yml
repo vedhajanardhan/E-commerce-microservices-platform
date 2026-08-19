@@ -1,0 +1,37 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:notification_test_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  cloud:
+    config:
+      enabled: false
+  config:
+    import: ""
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}
+    consumer:
+      properties:
+        spring.json.trusted.packages: "com.ecommerce.notification.event"
+
+eureka:
+  client:
+    enabled: false
+
+notification:
+  admin-alert-email: admin@test.local
+
+jwt:
+  secret: test-secret-key-for-jwt-signing-in-unit-and-integration-tests-only

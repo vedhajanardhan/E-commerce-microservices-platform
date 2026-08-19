@@ -1,0 +1,480 @@
+{
+  "info": {
+    "name": "E-Commerce Microservices Platform",
+    "description": "Full API collection for the platform, routed through the API Gateway (http://localhost:8080). Run 'Auth > Register' then 'Auth > Login' first — the collection auto-saves the access/refresh tokens and reuses them everywhere else via {{accessToken}}. Endpoints under each service's 'Admin' folder require a user whose account has ROLE_ADMIN (promote a user directly in the auth_db.user_roles table for local testing, since there's no public admin-signup endpoint by design).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "productId", "value": "" },
+    { "key": "categoryId", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "transactionId", "value": "" },
+    { "key": "addressId", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api", "auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"vedha\",\n  \"email\": \"vedha@example.com\",\n  \"password\": \"StrongPass1\",\n  \"firstName\": \"Vedha\",\n  \"lastName\": \"J\"\n}"
+            },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "if (pm.response.code === 201) {",
+              "  const body = pm.response.json();",
+              "  pm.collectionVariables.set('accessToken', body.accessToken);",
+              "  pm.collectionVariables.set('refreshToken', body.refreshToken);",
+              "}"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usernameOrEmail\": \"vedha\",\n  \"password\": \"StrongPass1\"\n}"
+            },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "if (pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  pm.collectionVariables.set('accessToken', body.accessToken);",
+              "  pm.collectionVariables.set('refreshToken', body.refreshToken);",
+              "}"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/auth/refresh", "host": ["{{base_url}}"], "path": ["api", "auth", "refresh"] },
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "if (pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  pm.collectionVariables.set('accessToken', body.accessToken);",
+              "  pm.collectionVariables.set('refreshToken', body.refreshToken);",
+              "}"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "Get Current User (/me)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api", "auth", "me"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/auth/logout", "host": ["{{base_url}}"], "path": ["api", "auth", "logout"] },
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" }
+          }
+        },
+        {
+          "name": "Admin - List Users",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/auth/admin/users?page=0&size=20", "host": ["{{base_url}}"], "path": ["api", "auth", "admin", "users"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Admin - Disable User",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{base_url}}/api/auth/admin/users/:userId/disable", "host": ["{{base_url}}"], "path": ["api", "auth", "admin", "users", ":userId", "disable"], "variable": [{ "key": "userId", "value": "" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Profile",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/users/me", "host": ["{{base_url}}"], "path": ["api", "users", "me"] }
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/users/me", "host": ["{{base_url}}"], "path": ["api", "users", "me"] },
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543210\",\n  \"bio\": \"Final-year IS engineering student\"\n}" }
+          }
+        },
+        {
+          "name": "List My Addresses",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/users/me/addresses", "host": ["{{base_url}}"], "path": ["api", "users", "me", "addresses"] }
+          }
+        },
+        {
+          "name": "Add Address",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/users/me/addresses", "host": ["{{base_url}}"], "path": ["api", "users", "me", "addresses"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressLine1\": \"221B Baker St\",\n  \"city\": \"Bengaluru\",\n  \"state\": \"Karnataka\",\n  \"postalCode\": \"560001\",\n  \"country\": \"India\",\n  \"addressType\": \"SHIPPING\",\n  \"isDefault\": true\n}"
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "if (pm.response.code === 201) {",
+              "  pm.collectionVariables.set('addressId', pm.response.json().id);",
+              "}"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "Delete Address",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/api/users/me/addresses/{{addressId}}", "host": ["{{base_url}}"], "path": ["api", "users", "me", "addresses", "{{addressId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products & Categories",
+      "item": [
+        {
+          "name": "Search Products",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/products?page=0&size=20&sort=createdAt,desc", "host": ["{{base_url}}"], "path": ["api", "products"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "sort", "value": "createdAt,desc" }, { "key": "keyword", "value": "", "disabled": true }, { "key": "categoryId", "value": "", "disabled": true }, { "key": "minPrice", "value": "", "disabled": true }, { "key": "maxPrice", "value": "", "disabled": true }] }
+          }
+        },
+        {
+          "name": "Get Product by Id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/products/{{productId}}", "host": ["{{base_url}}"], "path": ["api", "products", "{{productId}}"] }
+          }
+        },
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/categories", "host": ["{{base_url}}"], "path": ["api", "categories"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "if (pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  if (body.length > 0) pm.collectionVariables.set('categoryId', body[0].id);",
+              "}"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "Admin - Create Product",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/products", "host": ["{{base_url}}"], "path": ["api", "products"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"SKU-WIRELESS-MOUSE-001\",\n  \"name\": \"Wireless Mouse\",\n  \"description\": \"Ergonomic wireless mouse\",\n  \"price\": 999.00,\n  \"categoryId\": {{categoryId}},\n  \"brand\": \"Logitech\",\n  \"active\": true,\n  \"imageUrls\": [\"https://example.com/mouse.jpg\"]\n}"
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "if (pm.response.code === 201) {",
+              "  pm.collectionVariables.set('productId', pm.response.json().id);",
+              "}"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "Admin - Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/products/{{productId}}", "host": ["{{base_url}}"], "path": ["api", "products", "{{productId}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"SKU-WIRELESS-MOUSE-001\",\n  \"name\": \"Wireless Mouse v2\",\n  \"description\": \"Updated description\",\n  \"price\": 1099.00,\n  \"categoryId\": {{categoryId}},\n  \"brand\": \"Logitech\",\n  \"active\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin - Delete Product",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/api/products/{{productId}}", "host": ["{{base_url}}"], "path": ["api", "products", "{{productId}}"] }
+          }
+        },
+        {
+          "name": "Admin - Create Category",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/categories", "host": ["{{base_url}}"], "path": ["api", "categories"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Accessories\",\n  \"description\": \"Computer accessories\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "Get Stock for Product",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/inventory/{{productId}}", "host": ["{{base_url}}"], "path": ["api", "inventory", "{{productId}}"] }
+          }
+        },
+        {
+          "name": "Validate Stock",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/inventory/validate", "host": ["{{base_url}}"], "path": ["api", "inventory", "validate"] },
+            "body": { "mode": "raw", "raw": "{\n  \"items\": [\n    { \"productId\": \"{{productId}}\", \"quantity\": 2 }\n  ]\n}" }
+          }
+        },
+        {
+          "name": "Admin - Provision Inventory Item",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/inventory", "host": ["{{base_url}}"], "path": ["api", "inventory"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"sku\": \"SKU-WIRELESS-MOUSE-001\",\n  \"initialQuantity\": 100,\n  \"reorderThreshold\": 10\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin - Increase Stock",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/inventory/{{productId}}/increase", "host": ["{{base_url}}"], "path": ["api", "inventory", "{{productId}}", "increase"] },
+            "body": { "mode": "raw", "raw": "{\n  \"quantity\": 50,\n  \"reason\": \"Restock delivery\"\n}" }
+          }
+        },
+        {
+          "name": "Admin - Decrease Stock",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/inventory/{{productId}}/decrease", "host": ["{{base_url}}"], "path": ["api", "inventory", "{{productId}}", "decrease"] },
+            "body": { "mode": "raw", "raw": "{\n  \"quantity\": 5,\n  \"reason\": \"Damaged stock write-off\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "View Cart",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/cart", "host": ["{{base_url}}"], "path": ["api", "cart"] }
+          }
+        },
+        {
+          "name": "Add Item to Cart",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/cart/items", "host": ["{{base_url}}"], "path": ["api", "cart", "items"] },
+            "body": { "mode": "raw", "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 2\n}" }
+          }
+        },
+        {
+          "name": "Update Item Quantity",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/cart/items/{{productId}}", "host": ["{{base_url}}"], "path": ["api", "cart", "items", "{{productId}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"quantity\": 3\n}" }
+          }
+        },
+        {
+          "name": "Remove Item from Cart",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/api/cart/items/{{productId}}", "host": ["{{base_url}}"], "path": ["api", "cart", "items", "{{productId}}"] }
+          }
+        },
+        {
+          "name": "Clear Cart",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/api/cart", "host": ["{{base_url}}"], "path": ["api", "cart"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Place Order (from cart)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/orders", "host": ["{{base_url}}"], "path": ["api", "orders"] },
+            "body": { "mode": "raw", "raw": "{\n  \"shippingAddress\": \"221B Baker St, Bengaluru, Karnataka 560001, India\"\n}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "if (pm.response.code === 201) {",
+              "  pm.collectionVariables.set('orderId', pm.response.json().id);",
+              "}"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "Get Order by Id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/orders/{{orderId}}", "host": ["{{base_url}}"], "path": ["api", "orders", "{{orderId}}"] }
+          }
+        },
+        {
+          "name": "My Order History",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/orders?page=0&size=20", "host": ["{{base_url}}"], "path": ["api", "orders"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/orders/{{orderId}}/cancel", "host": ["{{base_url}}"], "path": ["api", "orders", "{{orderId}}", "cancel"] },
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Changed my mind\"\n}" }
+          }
+        },
+        {
+          "name": "Admin - All Orders",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/orders/admin?page=0&size=20", "host": ["{{base_url}}"], "path": ["api", "orders", "admin"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "status", "value": "CONFIRMED", "disabled": true }] }
+          }
+        },
+        {
+          "name": "Admin - Update Order Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/orders/admin/{{orderId}}/status", "host": ["{{base_url}}"], "path": ["api", "orders", "admin", "{{orderId}}", "status"] },
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"SHIPPED\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Get Payments for Order",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/payments/order/{{orderId}}", "host": ["{{base_url}}"], "path": ["api", "payments", "order", "{{orderId}}"] }
+          }
+        },
+        {
+          "name": "Get Payment by Transaction Id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/payments/transaction/{{transactionId}}", "host": ["{{base_url}}"], "path": ["api", "payments", "transaction", "{{transactionId}}"] }
+          }
+        },
+        {
+          "name": "Admin - All Payments",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/payments/admin?page=0&size=20", "host": ["{{base_url}}"], "path": ["api", "payments", "admin"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "My Notifications",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/notifications/me?page=0&size=20", "host": ["{{base_url}}"], "path": ["api", "notifications", "me"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Admin - All Notifications",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/notifications/admin?page=0&size=20", "host": ["{{base_url}}"], "path": ["api", "notifications", "admin"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Infrastructure",
+      "item": [
+        {
+          "name": "Eureka Dashboard",
+          "request": { "method": "GET", "url": { "raw": "http://localhost:8761", "host": ["localhost"], "port": "8761", "path": [] } }
+        },
+        {
+          "name": "Gateway Health",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/actuator/health", "host": ["{{base_url}}"], "path": ["actuator", "health"] }, "auth": { "type": "noauth" } }
+        },
+        {
+          "name": "Gateway Routes (debug)",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/actuator/gateway/routes", "host": ["{{base_url}}"], "path": ["actuator", "gateway", "routes"] }, "auth": { "type": "noauth" } }
+        }
+      ]
+    }
+  ]
+}

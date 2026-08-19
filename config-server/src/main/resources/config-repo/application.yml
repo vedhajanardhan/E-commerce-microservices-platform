@@ -1,0 +1,51 @@
+# =====================================================================
+# Shared configuration, applied to EVERY microservice that registers
+# with this Config Server (spring.config.import=configserver:...).
+# Per-service files (e.g. auth-service.yml, product-service.yml) can
+# override any of these keys.
+# =====================================================================
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOSTNAME:localhost}:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+# JWT signing/verification config, shared across auth-service (issues
+# tokens) and every other service + gateway (validates tokens). In a
+# real production system this secret would come from a secrets manager
+# (AWS Secrets Manager / Vault), not plaintext config.
+jwt:
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B59}
+  access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}      # 15 minutes
+  refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.ecommerce: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: WARN
