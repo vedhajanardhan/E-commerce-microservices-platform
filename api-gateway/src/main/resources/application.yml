@@ -1,18 +1,21 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
     name: api-gateway
+
   config:
-    import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+
   cloud:
     gateway:
       discovery:
         locator:
-          enabled: false   # explicit routes below, not auto-generated from Eureka
+          enabled: false
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+
       globalcors:
         cors-configurations:
           '[/**]':
@@ -20,6 +23,7 @@ spring:
             allowedMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
             allowedHeaders: "*"
             allowCredentials: true
+
       routes:
         - id: auth-service
           uri: lb://AUTH-SERVICE
@@ -59,7 +63,7 @@ spring:
             - name: CircuitBreaker
               args:
                 name: inventoryServiceCB
-                fallbackUri: forward:/fallback/inventory
+              fallbackUri: forward:/fallback/inventory
 
         - id: cart-service
           uri: lb://CART-SERVICE
@@ -69,7 +73,7 @@ spring:
             - name: CircuitBreaker
               args:
                 name: cartServiceCB
-                fallbackUri: forward:/fallback/cart
+              fallbackUri: forward:/fallback/cart
 
         - id: order-service
           uri: lb://ORDER-SERVICE
@@ -79,7 +83,7 @@ spring:
             - name: CircuitBreaker
               args:
                 name: orderServiceCB
-                fallbackUri: forward:/fallback/order
+              fallbackUri: forward:/fallback/order
 
         - id: payment-service
           uri: lb://PAYMENT-SERVICE
@@ -89,7 +93,7 @@ spring:
             - name: CircuitBreaker
               args:
                 name: paymentServiceCB
-                fallbackUri: forward:/fallback/payment
+              fallbackUri: forward:/fallback/payment
 
         - id: notification-service
           uri: lb://NOTIFICATION-SERVICE
@@ -99,12 +103,12 @@ spring:
             - name: CircuitBreaker
               args:
                 name: notificationServiceCB
-                fallbackUri: forward:/fallback/notification
+              fallbackUri: forward:/fallback/notification
 
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_HOSTNAME:localhost}:8761/eureka/
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
     register-with-eureka: true
     fetch-registry: true
   instance:
@@ -119,6 +123,7 @@ resilience4j:
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
+
   timelimiter:
     configs:
       default:
@@ -129,6 +134,7 @@ management:
     web:
       exposure:
         include: health,info,gateway,circuitbreakers
+
   endpoint:
     health:
       show-details: always
