@@ -67,12 +67,14 @@ public class JwtAuthenticationFilter implements WebFilter, Ordered {
         }
 
         String token = authHeader.substring(7);
+
         try {
             Claims claims = jwtValidator.validateAndExtractClaims(token);
             String userId = jwtValidator.extractUserId(claims);
             List<String> roles = jwtValidator.extractRoles(claims);
 
-            if (isAdminOnlyPath(path) && roles.stream().noneMatch(r -> r.equals("ROLE_ADMIN"))) {
+            if (isAdminOnlyPath(path) &&
+                    roles.stream().noneMatch(r -> r.equals("ROLE_ADMIN"))) {
                 return forbidden(exchange, "Admin role required for this endpoint");
             }
 
@@ -81,8 +83,20 @@ public class JwtAuthenticationFilter implements WebFilter, Ordered {
                     .header("X-User-Roles", String.join(",", roles))
                     .build();
 
-            return chain.filter(exchange.mutate().request(mutatedRequest).build());
+            return chain.filter(
+                    exchange.mutate()
+                            .request(mutatedRequest)
+                            .build()
+            );
+
         } catch (JwtException e) {
+            System.err.println(
+                    "JWT VALIDATION FAILED: " + e.getClass().getName()
+            );
+            System.err.println(
+                    "JWT MESSAGE: " + e.getMessage()
+            );
+
             return unauthorized(exchange, "Invalid or expired token");
         }
     }
@@ -95,23 +109,51 @@ public class JwtAuthenticationFilter implements WebFilter, Ordered {
         return path.contains("/admin/");
     }
 
-    private Mono<Void> unauthorized(ServerWebExchange exchange, String message) {
-        return writeError(exchange, HttpStatus.UNAUTHORIZED, message);
+    private Mono<Void> unauthorized(
+            ServerWebExchange exchange,
+            String message
+    ) {
+        return writeError(
+                exchange,
+                HttpStatus.UNAUTHORIZED,
+                message
+        );
     }
 
-    private Mono<Void> forbidden(ServerWebExchange exchange, String message) {
-        return writeError(exchange, HttpStatus.FORBIDDEN, message);
+    private Mono<Void> forbidden(
+            ServerWebExchange exchange,
+            String message
+    ) {
+        return writeError(
+                exchange,
+                HttpStatus.FORBIDDEN,
+                message
+        );
     }
 
-    private Mono<Void> writeError(ServerWebExchange exchange, HttpStatus status, String message) {
+    private Mono<Void> writeError(
+            ServerWebExchange exchange,
+            HttpStatus status,
+            String message
+    ) {
         ServerHttpResponse response = exchange.getResponse();
+
         response.setStatusCode(status);
-        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        response.getHeaders().setContentType(
+                MediaType.APPLICATION_JSON
+        );
 
         String body = String.format(
                 "{\"timestamp\":\"%s\",\"status\":%d,\"error\":\"%s\",\"message\":\"%s\"}",
-                java.time.Instant.now(), status.value(), status.getReasonPhrase(), message);
-        DataBuffer buffer = response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
+                java.time.Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                message
+        );
+
+        DataBuffer buffer = response.bufferFactory()
+                .wrap(body.getBytes(StandardCharsets.UTF_8));
+
         return response.writeWith(Mono.just(buffer));
     }
 }
