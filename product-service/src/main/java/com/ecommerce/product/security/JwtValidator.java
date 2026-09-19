@@ -16,8 +16,15 @@ public class JwtValidator {
 
     private final SecretKey signingKey;
 
-    public JwtValidator(@Value("${jwt.secret}") String secret) {
-        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    public JwtValidator(@Value("${JWT_SECRET}") String secret) {
+
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT_SECRET environment variable is not configured");
+        }
+
+        this.signingKey = Keys.hmacShaKeyFor(
+                secret.getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     public Claims parseClaims(String token) {
@@ -27,8 +34,10 @@ public class JwtValidator {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
+
         } catch (ExpiredJwtException e) {
             throw e;
+
         } catch (JwtException | IllegalArgumentException e) {
             throw new JwtException("Invalid JWT token", e);
         }
